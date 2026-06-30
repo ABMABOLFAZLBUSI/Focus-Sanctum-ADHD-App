@@ -59,6 +59,10 @@ export default function App() {
   // Unified Data Action and Progress Share modal state
   const [showDataActionModal, setShowDataActionModal] = useState(false);
   const [screenshotLoading, setScreenshotLoading] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [showClipboardImport, setShowClipboardImport] = useState(false);
+  const [pastedBackupText, setPastedBackupText] = useState("");
+  const [generatedCardUrl, setGeneratedCardUrl] = useState<string | null>(null);
 
   // Synchronize temp nickname with current nickname on open
   useEffect(() => {
@@ -264,6 +268,42 @@ export default function App() {
     triggerHaptic(100);
   };
 
+  const handleCopyBackupToClipboard = () => {
+    const backupData = {
+      tasks,
+      notes,
+      stats,
+      quests,
+    };
+    try {
+      const text = JSON.stringify(backupData, null, 2);
+      navigator.clipboard.writeText(text);
+      setCopySuccess(true);
+      triggerHaptic(80);
+      setTimeout(() => setCopySuccess(false), 3000);
+    } catch (err) {
+      alert("Could not copy automatically. Please export as JSON instead.");
+    }
+  };
+
+  const handleRestoreFromText = (text: string) => {
+    try {
+      const data = JSON.parse(text.trim());
+      if (data.tasks) setTasks(data.tasks);
+      if (data.notes) setNotes(data.notes);
+      if (data.stats) setStats(data.stats);
+      if (data.quests) setQuests(data.quests);
+      
+      triggerHaptic([100, 50, 100]);
+      alert("Restored focus logs and stats successfully!");
+      setShowDataActionModal(false);
+      setShowClipboardImport(false);
+      setPastedBackupText("");
+    } catch (err) {
+      alert("Invalid JSON format. Please verify and try again.");
+    }
+  };
+
   const handleImportBackup = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -291,14 +331,18 @@ export default function App() {
       setScreenshotLoading(true);
       triggerHaptic(80);
       const dataUrl = await generateProgressCard(stats);
+      setGeneratedCardUrl(dataUrl);
       
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = `${stats.nickname || "focus"}_sanctum_progress_card.png`;
-      link.click();
+      try {
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = `${stats.nickname || "focus"}_sanctum_progress_card.png`;
+        link.click();
+      } catch (downloadErr) {
+        console.warn("Direct browser download failed or blocked in this environment. Showing preview instead.", downloadErr);
+      }
       
       triggerHaptic([100, 50, 100]);
-      setShowDataActionModal(false);
     } catch (err) {
       console.error(err);
       alert("Failed to compile progress card graphic.");
@@ -676,12 +720,14 @@ export default function App() {
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="bg-[#0b0c1e] rounded-3xl p-6 max-w-sm w-full border border-indigo-500/30 shadow-2xl relative overflow-hidden"
+              className="bg-[#0b0c1e] rounded-3xl p-6 max-w-md w-full border border-indigo-500/30 shadow-2xl relative max-h-[92vh] overflow-y-auto scrollbar-none"
               style={{ background: "radial-gradient(circle at 50% 50%, #161732 0%, #05060f 100%)" }}
             >
               <button
                 onClick={() => {
                   setShowDataActionModal(false);
+                  setShowClipboardImport(false);
+                  setGeneratedCardUrl(null);
                   triggerHaptic(50);
                 }}
                 className="absolute right-4 top-4 w-8 h-8 rounded-full bg-slate-900/60 border border-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer z-20"
@@ -702,73 +748,184 @@ export default function App() {
                   <p className="text-xs text-slate-400 mt-0.5">Manage your focus dataset and share progress</p>
                 </div>
 
-                <div className="space-y-2.5">
-                  {/* Action 1: Export Data */}
-                  <button
-                    onClick={() => {
-                      handleExportBackup();
-                      setShowDataActionModal(false);
-                    }}
-                    className="w-full p-3.5 rounded-xl bg-slate-950/60 hover:bg-indigo-950/20 border border-slate-800 hover:border-indigo-500/30 text-left transition-all flex items-center gap-3 group cursor-pointer"
+                {/* Progress Card Live Image Preview (for long-press saving on mobile) */}
+                {generatedCardUrl && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-3.5 bg-slate-950/60 border border-amber-500/30 rounded-2xl text-center space-y-2.5 shadow-inner"
                   >
-                    <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-300 group-hover:bg-indigo-500/20 group-hover:scale-105 transition-all shrink-0">
-                      <Download className="w-4 h-4" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-amber-300 font-black uppercase tracking-wider flex items-center gap-1">
+                        ✨ Generated Progress Card
+                      </span>
+                      <button 
+                        onClick={() => setGeneratedCardUrl(null)}
+                        className="text-[9px] text-slate-500 hover:text-white uppercase font-black tracking-wider"
+                      >
+                        [Hide]
+                      </button>
                     </div>
-                    <div>
-                      <div className="text-xs font-black text-white">Export Dataset</div>
-                      <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5 font-medium">Download tasks, metrics, and character levels as a local backup .json file.</p>
-                    </div>
-                  </button>
-
-                  {/* Action 2: Import Data */}
-                  <label className="w-full p-3.5 rounded-xl bg-slate-950/60 hover:bg-indigo-950/20 border border-slate-800 hover:border-indigo-500/30 text-left transition-all flex items-center gap-3 group cursor-pointer">
-                    <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-300 group-hover:bg-indigo-500/20 group-hover:scale-105 transition-all shrink-0">
-                      <Upload className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-xs font-black text-white">Import Dataset</div>
-                      <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5 font-medium">Upload your .json database file to restore saved focus stats and draft tasks instantly.</p>
-                    </div>
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={(e) => {
-                        handleImportBackup(e);
-                        setShowDataActionModal(false);
-                      }}
-                      className="hidden"
-                    />
-                  </label>
-
-                  {/* Action 3: Share Collector Card */}
-                  <button
-                    disabled={screenshotLoading}
-                    onClick={handleDownloadProgressCard}
-                    className="w-full p-3.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/15 border border-indigo-500/25 hover:border-indigo-500/50 text-left transition-all flex items-center gap-3 group cursor-pointer relative overflow-hidden"
-                  >
-                    {/* Glowing golden border pulse for the highlighted option */}
-                    <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                     
-                    <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-300 group-hover:bg-amber-500/20 group-hover:scale-105 transition-all shrink-0">
-                      {screenshotLoading ? (
-                        <RefreshCw className="w-4 h-4 animate-spin text-amber-300" />
-                      ) : (
-                        <Share2 className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-xs font-black text-white flex items-center gap-1.5">
-                        Share Progress Card
-                        <span className="text-[8px] bg-amber-400/20 border border-amber-400/40 text-amber-300 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
-                          PREMIER
-                        </span>
+                    <img 
+                      src={generatedCardUrl} 
+                      alt="Progress Card" 
+                      className="max-w-full rounded-xl border border-white/10 mx-auto shadow-2xl" 
+                      referrerPolicy="no-referrer" 
+                    />
+                    
+                    <p className="text-[10px] text-amber-100/75 leading-relaxed bg-amber-500/5 p-2 rounded-lg border border-amber-500/10 font-medium">
+                      📱 <strong>Mobile/APK Tip:</strong> Since direct browser downloads are sometimes restricted inside wrapper APKs, you can <strong>long-press (tap and hold) the image above</strong> to save it directly to your gallery, or take a quick screenshot!
+                    </p>
+                  </motion.div>
+                )}
+
+                {!showClipboardImport ? (
+                  <div className="space-y-2.5">
+                    {/* Action 1: Export Data as standard file download */}
+                    <button
+                      onClick={() => {
+                        handleExportBackup();
+                      }}
+                      className="w-full p-3.5 rounded-xl bg-slate-950/60 hover:bg-indigo-950/20 border border-slate-800 hover:border-indigo-500/30 text-left transition-all flex items-center gap-3 group cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-300 group-hover:bg-indigo-500/20 group-hover:scale-105 transition-all shrink-0">
+                        <Download className="w-4 h-4" />
                       </div>
-                      <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5 font-medium">
-                        {screenshotLoading ? "Synthesizing graphics..." : "Download a beautiful high-definition digital collector card showing level & streaks."}
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-black text-white">Export as .json File</div>
+                        <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5 font-medium">Download tasks, metrics, and levels as a local backup file.</p>
+                      </div>
+                    </button>
+
+                    {/* Action 1B: Copy Raw Data to Clipboard (highly robust fallback for mobile wrappers) */}
+                    <button
+                      onClick={handleCopyBackupToClipboard}
+                      className="w-full p-3.5 rounded-xl bg-slate-950/60 hover:bg-indigo-950/20 border border-slate-800 hover:border-indigo-500/30 text-left transition-all flex items-center gap-3 group cursor-pointer"
+                    >
+                      <div className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-all shrink-0 ${
+                        copySuccess 
+                          ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                          : "bg-indigo-500/10 border-indigo-500/20 text-indigo-300 group-hover:bg-indigo-500/20 group-hover:scale-105"
+                      }`}>
+                        {copySuccess ? <Check className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-black text-white flex items-center gap-1.5">
+                          Copy Backup text
+                          {copySuccess && (
+                            <span className="text-[8px] bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
+                              COPIED!
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5 font-medium">
+                          {copySuccess ? "Copied to clipboard! Paste it inside any notes app to keep it safe." : "Copies backup raw dataset directly to your clipboard (safest for APKs)."}
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Action 2: Import Data from file */}
+                    <label className="w-full p-3.5 rounded-xl bg-slate-950/60 hover:bg-indigo-950/20 border border-slate-800 hover:border-indigo-500/30 text-left transition-all flex items-center gap-3 group cursor-pointer">
+                      <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-300 group-hover:bg-indigo-500/20 group-hover:scale-105 transition-all shrink-0">
+                        <Upload className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-black text-white">Upload .json Backup File</div>
+                        <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5 font-medium">Upload your saved file to restore focus records instantly.</p>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={(e) => {
+                          handleImportBackup(e);
+                          setShowDataActionModal(false);
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* Action 2B: Paste backup text (robust fallback for mobile) */}
+                    <button
+                      onClick={() => {
+                        setShowClipboardImport(true);
+                        triggerHaptic(50);
+                      }}
+                      className="w-full p-3.5 rounded-xl bg-slate-950/60 hover:bg-indigo-950/20 border border-slate-800 hover:border-indigo-500/30 text-left transition-all flex items-center gap-3 group cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-300 group-hover:bg-indigo-500/20 group-hover:scale-105 transition-all shrink-0">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-black text-white">Paste Backup Text</div>
+                        <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5 font-medium">Paste backup raw text to restore your stats and tasks without files.</p>
+                      </div>
+                    </button>
+
+                    {/* Action 3: Share Collector Card */}
+                    <button
+                      disabled={screenshotLoading}
+                      onClick={handleDownloadProgressCard}
+                      className="w-full p-3.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/15 border border-indigo-500/25 hover:border-indigo-500/50 text-left transition-all flex items-center gap-3 group cursor-pointer relative overflow-hidden"
+                    >
+                      {/* Glowing golden border pulse for the highlighted option */}
+                      <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      
+                      <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-300 group-hover:bg-amber-500/20 group-hover:scale-105 transition-all shrink-0">
+                        {screenshotLoading ? (
+                          <RefreshCw className="w-4 h-4 animate-spin text-amber-300" />
+                        ) : (
+                          <Share2 className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-white flex items-center gap-1.5">
+                          Compile Progress Card
+                          <span className="text-[8px] bg-amber-400/20 border border-amber-400/40 text-amber-300 font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider scale-90">
+                            PREMIER
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-relaxed mt-0.5 font-medium">
+                          {screenshotLoading ? "Synthesizing graphics..." : "Download & preview a high-definition digital collector card showing level & streaks."}
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 bg-slate-950/60 p-4 rounded-2xl border border-white/5 animate-fade-in text-left">
+                    <span className="text-[9px] text-indigo-300 font-extrabold tracking-widest uppercase block mb-1">
+                      Paste Dataset Raw JSON
+                    </span>
+                    <textarea
+                      rows={6}
+                      value={pastedBackupText}
+                      onChange={(e) => setPastedBackupText(e.target.value)}
+                      placeholder='Paste JSON here e.g. { "tasks": [...], "stats": {...} }'
+                      className="w-full p-3 bg-slate-900 border border-slate-850 focus:border-indigo-500/50 rounded-xl text-[11px] font-mono text-indigo-100 placeholder-slate-600 focus:outline-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setShowClipboardImport(false);
+                          setPastedBackupText("");
+                          triggerHaptic(50);
+                        }}
+                        className="flex-1 py-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 rounded-lg border border-white/5 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        disabled={!pastedBackupText.trim()}
+                        onClick={() => {
+                          handleRestoreFromText(pastedBackupText);
+                        }}
+                        className="flex-1 py-2 text-xs font-black text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 rounded-lg shadow-lg cursor-pointer"
+                      >
+                        Restore Data
+                      </button>
                     </div>
-                  </button>
-                </div>
+                  </div>
+                )}
 
                 <div className="pt-1 text-center">
                   <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
@@ -783,4 +940,3 @@ export default function App() {
     </div>
   );
 }
-
