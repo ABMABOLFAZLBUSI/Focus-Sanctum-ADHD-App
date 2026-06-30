@@ -29,7 +29,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'   # <-- Important: Java 21 for your project
+          java-version: '25'   # <-- Important: Java 21 for your project
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -44,6 +44,7 @@ jobs:
       - name: Build debug APK
         run: |
           cd android
+          ./gradlew --stop
           ./gradlew assembleDebug
 
       - name: Upload debug APK
