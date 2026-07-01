@@ -65,7 +65,7 @@ jobs:
           ls -la android/app/keystore.properties
           cat android/app/keystore.properties
 
-      # --- Build DEBUG APK (unsigned) ---
+      # ---- Build DEBUG APK (unsigned) ---
       - name: Build debug APK
         run: |
           cd android
