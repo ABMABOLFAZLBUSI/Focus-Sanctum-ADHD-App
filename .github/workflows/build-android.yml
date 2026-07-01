@@ -69,6 +69,7 @@ jobs:
       - name: Build debug APK
         run: |
           cd android
+          gradle wrapper --gradle-version 8.14.3
           ./gradlew --stop
           ./gradlew assembleDebug
 
