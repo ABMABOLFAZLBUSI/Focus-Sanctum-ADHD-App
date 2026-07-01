@@ -6,7 +6,10 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   assets: {
     icon: {
-      android: 'assets/icon.png',   // Path to your source image
+      android: {
+        foreground: 'assets/icon.png', 
+        background: 'assets/icon-background.png',
+        fallback: 'assets/icon.png',
     },
     splash: {
       android: 'assets/splash.png', // (Optional) Add a splash screen image

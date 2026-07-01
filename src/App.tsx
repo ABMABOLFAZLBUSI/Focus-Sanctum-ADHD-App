@@ -251,21 +251,58 @@ export default function App() {
   };
 
   // Import/Export Backup
-  const handleExportBackup = () => {
+  const handleExportBackup = async () => {
     const backupData = {
       tasks,
       notes,
       stats,
       quests,
     };
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `adhd_planner_backup_${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    triggerHaptic(100);
+    const jsonString = JSON.stringify(backupData, null, 2);
+    const fileName = `focus_sanctum_backup_${new Date().toISOString().slice(0, 10)}.json`;
+
+    // Try sharing via Web Share API first if supported (extremely reliable inside native APK wrappers/Capacitor)
+    if (navigator.share) {
+      try {
+        const file = new File([jsonString], fileName, { type: "application/json" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: "Focus Sanctum Backup",
+            text: "My custom ADHD planner productivity dataset backup."
+          });
+          triggerHaptic([100, 50, 100]);
+          return;
+        } else {
+          // Fallback text sharing if file sharing is restricted but share is supported
+          await navigator.share({
+            title: "Focus Sanctum Backup Raw JSON",
+            text: jsonString
+          });
+          triggerHaptic([100, 50, 100]);
+          return;
+        }
+      } catch (shareErr) {
+        console.warn("Web Share API failed, falling back to traditional file download", shareErr);
+      }
+    }
+
+    // Traditional Blob download fallback (for standard desktop browsers)
+    try {
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+      triggerHaptic(100);
+    } catch (err) {
+      console.error("Blob download failed", err);
+      // Tertiary fallback: copy to clipboard
+      handleCopyBackupToClipboard();
+      alert("Traditional file download is restricted in this app environment. The backup raw text has been copied to your clipboard instead!");
+    }
   };
 
   const handleCopyBackupToClipboard = () => {
@@ -332,6 +369,27 @@ export default function App() {
       triggerHaptic(80);
       const dataUrl = await generateProgressCard(stats);
       setGeneratedCardUrl(dataUrl);
+
+      // Try using the Web Share API first if supported (extremely reliable for mobile/Capacitor/APK wrappers)
+      if (navigator.share) {
+        try {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          const file = new File([blob], `${stats.nickname || "focus"}_sanctum_progress_card.png`, { type: "image/png" });
+          
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: "My Focus Sanctum Progress Card",
+              text: `Check out my Focus Sanctum progress! I am Level ${stats.level} with a ${stats.streak}-day streak.`
+            });
+            triggerHaptic([100, 50, 100]);
+            return;
+          }
+        } catch (shareErr) {
+          console.warn("Native share sheet failed or was cancelled, falling back to download link", shareErr);
+        }
+      }
       
       try {
         const link = document.createElement("a");
