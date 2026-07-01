@@ -46,20 +46,7 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      # --- Build DEBUG APK (unsigned) ---
-      - name: Build debug APK
-        run: |
-          cd android
-          ./gradlew --stop
-          ./gradlew assembleDebug
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-
-      # --- Build RELEASE APK (signed) ---
+      # --- Decode Keystores ---
       - name: Decode Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -77,7 +64,21 @@ jobs:
         run: |
           ls -la android/app/keystore.properties
           cat android/app/keystore.properties
-          
+
+      # --- Build DEBUG APK (unsigned) ---
+      - name: Build debug APK
+        run: |
+          cd android
+          ./gradlew --stop
+          ./gradlew assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      # --- Build RELEASE APK (signed) ---
       - name: Build signed release APK
         run: |
           cd android
