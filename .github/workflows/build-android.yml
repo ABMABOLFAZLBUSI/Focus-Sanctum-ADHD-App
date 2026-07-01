@@ -72,7 +72,12 @@ jobs:
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/app/keystore.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/app/keystore.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/app/keystore.properties
-
+      
+      - name: Verify keystore.properties exists
+        run: |
+          ls -la android/app/keystore.properties
+          cat android/app/keystore.properties
+          
       - name: Build signed release APK
         run: |
           cd android

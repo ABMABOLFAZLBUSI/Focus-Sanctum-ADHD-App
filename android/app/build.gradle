@@ -17,17 +17,17 @@ android {
         }
     }
     def keystoreProperties = new Properties()
-    def keystorePropertiesFile = rootProject.file('app/keystore.properties')
+    def keystorePropertiesFile = rootProject.file('/android/app/keystore.properties')
     if (keystorePropertiesFile.exists()) {
         keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
     }
 
     signingConfigs {
         release {
-            storeFile file(keystoreProperties.getProperty('KEYSTORE_BASE64'))
-            storePassword keystoreProperties.getProperty('KEYSTORE_PASSWORD')
-            keyAlias keystoreProperties.getProperty('KEY_ALIAS')
-            keyPassword keystoreProperties.getProperty('KEY_PASSWORD')
+            storeFile file(keystoreProperties.getProperty('storeFile'))
+            storePassword keystoreProperties.getProperty('storePassword')
+            keyAlias keystoreProperties.getProperty('keyAlias')
+            keyPassword keystoreProperties.getProperty('keyPassword')
         }
     }
     buildTypes {
