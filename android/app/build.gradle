@@ -24,10 +24,10 @@ android {
 
     signingConfigs {
         release {
-            storeFile file(keystoreProperties.getProperty('storeFile'))
-            storePassword keystoreProperties.getProperty('storePassword')
-            keyAlias keystoreProperties.getProperty('keyAlias')
-            keyPassword keystoreProperties.getProperty('keyPassword')
+            storeFile file(keystoreProperties.getProperty('KEYSTORE_BASE64'))
+            storePassword keystoreProperties.getProperty('KEYSTORE_PASSWORD')
+            keyAlias keystoreProperties.getProperty('KEY_ALIAS')
+            keyPassword keystoreProperties.getProperty('KEY_PASSWORD')
         }
     }
     buildTypes {
