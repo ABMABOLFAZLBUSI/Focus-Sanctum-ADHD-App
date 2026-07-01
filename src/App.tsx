@@ -14,6 +14,8 @@ import DopamineMenu from "./components/DopamineMenu";
 import StatsDashboard from "./components/StatsDashboard";
 import { motion, AnimatePresence } from "motion/react";
 import { generateProgressCard } from "./utils/ScreenshotGenerator";
+import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
+import { Capacitor } from "@capacitor/core";
 
 const DEFAULT_STATS: UserStats = {
   level: 1,
@@ -261,7 +263,50 @@ export default function App() {
     const jsonString = JSON.stringify(backupData, null, 2);
     const fileName = `focus_sanctum_backup_${new Date().toISOString().slice(0, 10)}.json`;
 
-    // Try sharing via Web Share API first if supported (extremely reliable inside native APK wrappers/Capacitor)
+    // 1. Check if we are running in a native/Capacitor environment
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: jsonString,
+          directory: Directory.Documents,
+          encoding: Encoding.UTF8,
+        });
+        triggerHaptic([100, 50, 100]);
+        alert(`🎉 Success! Backup exported directly to your device's Documents folder.\n\nFile Name:\n${fileName}\n\nSaved Location:\n${result.uri}`);
+        return;
+      } catch (filesystemErr: any) {
+        console.error("Capacitor Filesystem direct Documents write failed. Trying cache fallback...", filesystemErr);
+        try {
+          const cacheResult = await Filesystem.writeFile({
+            path: fileName,
+            data: jsonString,
+            directory: Directory.Cache,
+            encoding: Encoding.UTF8,
+          });
+          
+          if (navigator.share) {
+            const file = new File([jsonString], fileName, { type: "application/json" });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                files: [file],
+                title: "Focus Sanctum Backup",
+                text: "Exported ADHD Planner dataset backup."
+              });
+              triggerHaptic([100, 50, 100]);
+              return;
+            }
+          }
+          triggerHaptic([100, 50, 100]);
+          alert(`Backup saved to Cache storage:\n${cacheResult.uri}\n\nDocuments access was blocked.`);
+          return;
+        } catch (cacheErr) {
+          console.error("Capacitor Cache write also failed.", cacheErr);
+        }
+      }
+    }
+
+    // 2. Try sharing via Web Share API first if supported (extremely reliable inside webviews / modern browsers)
     if (navigator.share) {
       try {
         const file = new File([jsonString], fileName, { type: "application/json" });
@@ -287,7 +332,7 @@ export default function App() {
       }
     }
 
-    // Traditional Blob download fallback (for standard desktop browsers)
+    // 3. Traditional Blob download fallback (for standard desktop browsers)
     try {
       const blob = new Blob([jsonString], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -370,7 +415,36 @@ export default function App() {
       const dataUrl = await generateProgressCard(stats);
       setGeneratedCardUrl(dataUrl);
 
-      // Try using the Web Share API first if supported (extremely reliable for mobile/Capacitor/APK wrappers)
+      // 1. Check if we are running in a native/Capacitor environment
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const fileName = `${stats.nickname || "focus"}_sanctum_progress_card.png`;
+          const base64Data = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+          const result = await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: Directory.Documents,
+          });
+          triggerHaptic([100, 50, 100]);
+          alert(`🎉 Success! Progress Card exported directly to your device's Documents folder.\n\nFile Name:\n${fileName}\n\nSaved Location:\n${result.uri}`);
+          return;
+        } catch (fsErr: any) {
+          console.error("Capacitor Filesystem image direct write failed. Trying cache + native share...", fsErr);
+          try {
+            const fileName = `${stats.nickname || "focus"}_sanctum_progress_card.png`;
+            const base64Data = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+            await Filesystem.writeFile({
+              path: fileName,
+              data: base64Data,
+              directory: Directory.Cache,
+            });
+          } catch (cacheErr) {
+            console.error("Capacitor Filesystem image cache write failed.", cacheErr);
+          }
+        }
+      }
+
+      // 2. Try using the Web Share API first if supported (extremely reliable for mobile/Capacitor/APK wrappers)
       if (navigator.share) {
         try {
           const res = await fetch(dataUrl);
@@ -998,3 +1072,4 @@ export default function App() {
     </div>
   );
 }
+
