@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">FocusSanctum</string>
-    <string name="title_activity_main">FocusSanctum</string>
-    <string name="package_name">com.abolfazldigital.focussanctum</string>
-    <string name="custom_url_scheme">com.abolfazldigital.focussanctum</string>
+    <string name="app_name">Focus Sanctum</string>
+    <string name="title_activity_main">Focus Sanctum</string>
+    <string name="package_name">com.adhd.planner.organizer</string>
+    <string name="custom_url_scheme">com.adhd.planner.organizer</string>
 </resources>

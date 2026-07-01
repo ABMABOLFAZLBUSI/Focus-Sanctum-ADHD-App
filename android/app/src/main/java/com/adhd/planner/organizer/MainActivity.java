@@ -1,4 +1,4 @@
-package com.abolfazldigital.focussanctum;
+package com.adhd.planner.organizer;
 
 import com.getcapacitor.BridgeActivity;
 
